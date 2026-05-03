@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arena FPS - Arrow Keys + Space</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="hud">
+    <h1>Arena FPS</h1>
+    <p><strong>Move:</strong> Arrow Keys | <strong>Shoot:</strong> Space Bar</p>
+    <p><strong>Difficulty:</strong> Hard</p>
+
+    <div class="statRow">
+      <span class="statLabel">Your Health</span>
+      <span id="playerHealth">100</span>
+    </div>
+    <div class="barTrack"><div id="playerHealthBar" class="barFill player"></div></div>
+
+    <div class="statRow">
+      <span class="statLabel">Enemy Health</span>
+      <span id="enemyHealth">100</span>
+    </div>
+    <div class="barTrack"><div id="enemyHealthBar" class="barFill enemy"></div></div>
+
+    <div class="hudGrid">
+      <p><strong>Enemy Distance:</strong> <span id="enemyDistance">0.0m</span></p>
+      <p><strong>Weapon:</strong> <span id="weaponState">Ready</span></p>
+      <p><strong>Shots Landed:</strong> <span id="shotsLanded">0</span></p>
+      <p><strong>Shots Fired:</strong> <span id="shotsFired">0</span></p>
+    </div>
+
+    <p id="statusText">Defeat the opponent.</p>
+    <button id="restartBtn" hidden>Restart</button>
+  </div>
+
+  <div id="crosshair">+</div>
+
+  <script type="module" src="game.js"></script>
+</body>
+</html>

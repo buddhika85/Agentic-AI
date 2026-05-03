@@ -1,0 +1,119 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #0f1016;
+  color: #f2f4ff;
+}
+
+canvas {
+  display: block;
+}
+
+#hud {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  width: min(320px, 90vw);
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  line-height: 1.35;
+}
+
+#hud h1 {
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+}
+
+#hud p {
+  margin: 4px 0;
+}
+
+.statRow {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.statLabel {
+  font-weight: 700;
+}
+
+.barTrack {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  margin-top: 4px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  width: 100%;
+  transition: width 120ms linear;
+}
+
+.barFill.player {
+  background: linear-gradient(90deg, #22c55e, #bef264);
+}
+
+.barFill.enemy {
+  background: linear-gradient(90deg, #f97316, #ef4444);
+}
+
+.hudGrid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 10px;
+}
+
+.hudGrid p {
+  margin: 2px 0;
+}
+
+#statusText {
+  margin-top: 8px;
+  font-weight: 700;
+  color: #8dd5ff;
+}
+
+#restartBtn {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  color: #0b1224;
+  background: #7dd3fc;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#restartBtn:hover {
+  background: #bae6fd;
+}
+
+#crosshair {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 8;
+  color: #ffffff;
+  font-size: 26px;
+  text-shadow: 0 0 6px #000;
+  user-select: none;
+  pointer-events: none;
+}
