@@ -91,3 +91,6 @@ __pycache__/
 # Root PNG files
 1 Course Plan.png
 3 AI Coder - Stages 1 to 8.png
+
+# Nested git repos / submodules
+6_Site/portfolio-site/
