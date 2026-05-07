@@ -9,7 +9,6 @@ type ChatMessage = {
 };
 
 type ChatSidebarProps = {
-  authToken: string | null;
   board: BoardData | null;
   onBoardUpdated: () => void;
 };
@@ -30,7 +29,6 @@ const boardToApiFormat = (board: BoardData) => {
 };
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
-  authToken,
   board,
   onBoardUpdated,
 }) => {
@@ -45,7 +43,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   }, [messages, isLoading]);
 
   const sendMessage = useCallback(async () => {
-    if (!input.trim() || !authToken || isLoading) return;
+    if (!input.trim() || isLoading) return;
 
     const userMessage: ChatMessage = { role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
@@ -57,14 +55,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       const boardState = board ? boardToApiFormat(board) : null;
       const res = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
-          message: input,
-          board: boardState,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: input, board: boardState }),
       });
 
       if (!res.ok) {
@@ -92,7 +84,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [input, authToken, board, isLoading, onBoardUpdated]);
+  }, [input, board, isLoading, onBoardUpdated]);
 
   return (
     <aside className="flex min-h-[520px] flex-col rounded-2xl border border-[var(--navy-dark)]/20 bg-[var(--navy-dark)] p-4 shadow-lg">

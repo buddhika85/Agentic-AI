@@ -36,7 +36,7 @@ const FALLBACK_BOARD: BoardData = {
 
 export const KanbanBoard = () => {
   const { logout } = useAuth();
-  const { board: apiBoard, isLoading, error, saveBoard, refreshBoard, authToken } = useBoard();
+  const { board: apiBoard, isLoading, error, saveBoard, refreshBoard } = useBoard();
   const [board, setBoard] = useState<BoardData>(FALLBACK_BOARD);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
@@ -253,7 +253,6 @@ export const KanbanBoard = () => {
 
             <div className="hidden xl:block">
               <ChatSidebar
-                authToken={authToken}
                 board={board}
                 onBoardUpdated={refreshBoard}
               />
@@ -271,7 +270,6 @@ export const KanbanBoard = () => {
 
       <div className="xl:hidden">
         <ChatSidebar
-          authToken={authToken}
           board={board}
           onBoardUpdated={refreshBoard}
         />

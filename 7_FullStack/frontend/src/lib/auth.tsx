@@ -34,29 +34,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("authToken");
-    if (token) {
-      fetch("/api/health", {
-        headers: { Authorization: `Bearer ${token}` },
+    // Restore session from HttpOnly cookie — the browser sends it automatically.
+    fetch("/api/auth/verify")
+      .then((res) => {
+        if (res.ok) setIsAuthenticated(true);
       })
-        .then((res) => {
-          if (res.ok) {
-            setIsAuthenticated(true);
-          } else {
-            localStorage.removeItem("authToken");
-          }
-        })
-        .catch(() => localStorage.removeItem("authToken"))
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
-    }
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
   }, []);
 
-  const login = async (
-    username: string,
-    password: string,
-  ): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<boolean> => {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -64,19 +51,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         body: JSON.stringify({ username, password }),
       });
       if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem("authToken", data.token);
         setIsAuthenticated(true);
         return true;
       }
-    } catch (error) {
-      console.error("Login failed:", error);
+    } catch (error: unknown) {
+      console.error("Login failed:", error instanceof Error ? error.message : error);
     }
     return false;
   };
 
   const logout = () => {
-    localStorage.removeItem("authToken");
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     setIsAuthenticated(false);
   };
 

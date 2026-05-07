@@ -7,7 +7,6 @@ import { BoardProvider } from "@/lib/boardApi";
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
-  const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
 
   if (isLoading) {
     return (
@@ -18,7 +17,7 @@ function AppContent() {
   }
 
   return isAuthenticated ? (
-    <BoardProvider authToken={token} isAuthenticated={isAuthenticated}>
+    <BoardProvider isAuthenticated={isAuthenticated}>
       <KanbanBoard />
     </BoardProvider>
   ) : (

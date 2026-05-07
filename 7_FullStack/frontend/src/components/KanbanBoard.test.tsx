@@ -9,7 +9,7 @@ const getFirstColumn = () => screen.getAllByTestId(/column-/i)[0];
 const renderWithProviders = (component: React.ReactElement) => {
   return render(
     <AuthProvider>
-      <BoardProvider authToken="fake-token" isAuthenticated={true}>
+      <BoardProvider isAuthenticated={true}>
         {component}
       </BoardProvider>
     </AuthProvider>,

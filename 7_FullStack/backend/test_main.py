@@ -1,10 +1,13 @@
 import os
 import sqlite3
 import tempfile
-import pytest
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 from fastapi.testclient import TestClient
-from main import app, init_db, VALID_TOKEN
+
+from main import app
 import db
 
 
@@ -17,14 +20,23 @@ def tmp_db_path():
 
 
 @pytest.fixture
-def client(tmp_db_path):
-    init_db(tmp_db_path)
-    original = db.DB_PATH
-    db.DB_PATH = tmp_db_path
-    c = TestClient(app)
-    yield c
-    db.DB_PATH = original
+def client(tmp_db_path, monkeypatch):
+    db.init_db(tmp_db_path)
+    monkeypatch.setattr(db, "DB_PATH", tmp_db_path)
+    return TestClient(app)
 
+
+def _login(client) -> str:
+    resp = client.post("/api/auth/login", json={"username": "user", "password": "password"})
+    assert resp.status_code == 200
+    return resp.json()["token"]
+
+
+def _auth(client) -> dict:
+    return {"Authorization": f"Bearer {_login(client)}"}
+
+
+# --- Health ---
 
 def test_health_endpoint(client):
     response = client.get("/api/health")
@@ -32,20 +44,16 @@ def test_health_endpoint(client):
     assert response.json() == {"status": "ok"}
 
 
+# --- Auth ---
+
 def test_login_success(client):
-    response = client.post("/api/auth/login", json={
-        "username": "user",
-        "password": "password",
-    })
+    response = client.post("/api/auth/login", json={"username": "user", "password": "password"})
     assert response.status_code == 200
     assert "token" in response.json()
 
 
 def test_login_invalid_credentials(client):
-    response = client.post("/api/auth/login", json={
-        "username": "user",
-        "password": "wrong",
-    })
+    response = client.post("/api/auth/login", json={"username": "user", "password": "wrong"})
     assert response.status_code == 401
 
 
@@ -55,27 +63,32 @@ def test_logout(client):
     assert response.json() == {"status": "ok"}
 
 
+def test_verify_without_auth(client):
+    response = client.get("/api/auth/verify")
+    assert response.status_code == 401
+
+
+def test_verify_with_valid_token(client):
+    headers = _auth(client)
+    response = client.get("/api/auth/verify", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["status"] == "authenticated"
+
+
+# --- Board ---
+
 def test_get_board_without_auth(client):
     response = client.get("/api/board")
     assert response.status_code == 401
 
 
 def test_get_board_with_invalid_token(client):
-    response = client.get("/api/board", headers={
-        "Authorization": "Bearer invalid-token"
-    })
+    response = client.get("/api/board", headers={"Authorization": "Bearer invalid-token"})
     assert response.status_code == 401
 
 
 def test_get_board_with_valid_token(client):
-    login_resp = client.post("/api/auth/login", json={
-        "username": "user",
-        "password": "password",
-    })
-    token = login_resp.json()["token"]
-    response = client.get("/api/board", headers={
-        "Authorization": f"Bearer {token}"
-    })
+    response = client.get("/api/board", headers=_auth(client))
     assert response.status_code == 200
     data = response.json()
     assert "columns" in data
@@ -88,61 +101,30 @@ def test_save_board_without_auth(client):
 
 
 def test_save_board_with_valid_token(client):
-    login_resp = client.post("/api/auth/login", json={
-        "username": "user",
-        "password": "password",
-    })
-    token = login_resp.json()["token"]
     board_data = {
         "columns": [
             {"id": "col-todo", "title": "To Do", "position": 0, "cards": []},
         ]
     }
-    response = client.post("/api/board", json=board_data, headers={
-        "Authorization": f"Bearer {token}"
-    })
+    response = client.post("/api/board", json=board_data, headers=_auth(client))
     assert response.status_code == 200
 
 
 def test_save_board_missing_columns(client):
-    login_resp = client.post("/api/auth/login", json={
-        "username": "user",
-        "password": "password",
-    })
-    token = login_resp.json()["token"]
-    response = client.post("/api/board", json={"foo": "bar"}, headers={
-        "Authorization": f"Bearer {token}"
-    })
+    response = client.post("/api/board", json={"foo": "bar"}, headers=_auth(client))
     assert response.status_code == 400
 
 
 def test_full_auth_flow(client):
-    login_resp = client.post("/api/auth/login", json={
-        "username": "user",
-        "password": "password",
-    })
-    assert login_resp.status_code == 200
-    token = login_resp.json()["token"]
-
-    board_resp = client.get("/api/board", headers={
-        "Authorization": f"Bearer {token}"
-    })
+    headers = _auth(client)
+    board_resp = client.get("/api/board", headers=headers)
     assert board_resp.status_code == 200
-
-    save_resp = client.post("/api/board", json=board_resp.json(), headers={
-        "Authorization": f"Bearer {token}"
-    })
+    save_resp = client.post("/api/board", json=board_resp.json(), headers=headers)
     assert save_resp.status_code == 200
 
 
 def test_board_persists_after_save(client):
-    login_resp = client.post("/api/auth/login", json={
-        "username": "user",
-        "password": "password",
-    })
-    token = login_resp.json()["token"]
-    headers = {"Authorization": f"Bearer {token}"}
-
+    headers = _auth(client)
     new_board = {
         "columns": [
             {
@@ -155,49 +137,33 @@ def test_board_persists_after_save(client):
             },
         ]
     }
-    save_resp = client.post("/api/board", json=new_board, headers=headers)
-    assert save_resp.status_code == 200
-
-    fetch_resp = client.get("/api/board", headers=headers)
-    assert fetch_resp.status_code == 200
-    data = fetch_resp.json()
+    assert client.post("/api/board", json=new_board, headers=headers).status_code == 200
+    data = client.get("/api/board", headers=headers).json()
     assert data["columns"][0]["title"] == "Custom Column"
-    assert len(data["columns"][0]["cards"]) == 1
     assert data["columns"][0]["cards"][0]["title"] == "New Card"
 
 
 def test_board_columns_are_replaced_on_save(client):
-    login_resp = client.post("/api/auth/login", json={
-        "username": "user",
-        "password": "password",
-    })
-    token = login_resp.json()["token"]
-    headers = {"Authorization": f"Bearer {token}"}
-
+    headers = _auth(client)
     single_col = {
-        "columns": [
-            {"id": "col-only", "title": "Only Column", "position": 0, "cards": []},
-        ]
+        "columns": [{"id": "col-only", "title": "Only Column", "position": 0, "cards": []}]
     }
     client.post("/api/board", json=single_col, headers=headers)
-
-    fetch_resp = client.get("/api/board", headers=headers)
-    data = fetch_resp.json()
+    data = client.get("/api/board", headers=headers).json()
     assert len(data["columns"]) == 1
     assert data["columns"][0]["id"] == "col-only"
 
 
+# --- DB helpers ---
+
 def test_db_init_creates_tables(tmp_db_path):
     db.init_db(tmp_db_path)
     conn = sqlite3.connect(str(tmp_db_path))
-    tables = [row[0] for row in conn.execute(
+    tables = {row[0] for row in conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table'"
-    ).fetchall()]
+    ).fetchall()}
     conn.close()
-    assert "users" in tables
-    assert "boards" in tables
-    assert "columns" in tables
-    assert "cards" in tables
+    assert {"users", "boards", "columns", "cards", "sessions"}.issubset(tables)
 
 
 def test_db_init_seeds_default_data(tmp_db_path):
@@ -209,6 +175,7 @@ def test_db_init_seeds_default_data(tmp_db_path):
     cards = conn.execute("SELECT * FROM cards").fetchall()
     conn.close()
     assert user is not None
+    assert ":" in user["password_hash"], "Password should be hashed (salt:hash format)"
     assert board is not None
     assert len(cols) == 5
     assert len(cards) == 3
@@ -216,23 +183,34 @@ def test_db_init_seeds_default_data(tmp_db_path):
 
 def test_fetch_board_returns_none_for_missing_user(tmp_db_path):
     db.init_db(tmp_db_path)
-    board = db.fetch_board(user_id=999, db_path=tmp_db_path)
-    assert board is None
+    assert db.fetch_board(user_id=999, db_path=tmp_db_path) is None
 
+
+def test_session_lifecycle(tmp_db_path):
+    db.init_db(tmp_db_path)
+    token = db.create_session(1, tmp_db_path)
+    assert db.get_session_user(token, tmp_db_path) == 1
+    db.delete_session(token, tmp_db_path)
+    assert db.get_session_user(token, tmp_db_path) is None
+
+
+def test_invalid_session_returns_none(tmp_db_path):
+    db.init_db(tmp_db_path)
+    assert db.get_session_user("nonexistent-token", tmp_db_path) is None
+
+
+# --- validate_board ---
 
 def test_validate_board_missing_columns():
-    errors = db.validate_board({})
-    assert "Missing 'columns' in board data" in errors
+    assert "Missing 'columns' in board data" in db.validate_board({})
 
 
 def test_validate_board_columns_not_list():
-    errors = db.validate_board({"columns": "not a list"})
-    assert "'columns' must be a list" in errors
+    assert "'columns' must be a list" in db.validate_board({"columns": "not a list"})
 
 
 def test_validate_board_empty_columns():
-    errors = db.validate_board({"columns": []})
-    assert "Board must have at least one column" in errors
+    assert "Board must have at least one column" in db.validate_board({"columns": []})
 
 
 def test_validate_board_missing_column_id():
@@ -263,14 +241,8 @@ def test_validate_board_missing_card_fields():
 
 def test_validate_board_valid_data():
     errors = db.validate_board({"columns": [
-        {
-            "id": "c1",
-            "title": "To Do",
-            "position": 0,
-            "cards": [
-                {"id": "card-1", "title": "Task", "details": "info", "position": 0}
-            ]
-        }
+        {"id": "c1", "title": "To Do", "position": 0,
+         "cards": [{"id": "card-1", "title": "Task", "details": "info", "position": 0}]}
     ]})
     assert errors == []
 
@@ -281,33 +253,27 @@ def test_save_board_invalid_raises_value_error(tmp_db_path):
         db.save_board({"columns": []}, user_id=999, db_path=tmp_db_path)
 
 
+# --- AI endpoints ---
+
 def test_ai_test_without_auth(client):
     response = client.post("/api/ai/test", json={"prompt": "hello"})
     assert response.status_code == 401
 
 
 def test_ai_test_with_invalid_token(client):
-    response = client.post("/api/ai/test", json={"prompt": "hello"}, headers={
-        "Authorization": "Bearer invalid-token"
-    })
+    response = client.post("/api/ai/test", json={"prompt": "hello"},
+                           headers={"Authorization": "Bearer invalid-token"})
     assert response.status_code == 401
 
 
-def test_ai_test_endpoint_exists(client):
-    login_resp = client.post("/api/auth/login", json={
-        "username": "user",
-        "password": "password",
-    })
-    token = login_resp.json()["token"]
-    response = client.post("/api/ai/test", json={"prompt": "hello"}, headers={
-        "Authorization": f"Bearer {token}"
-    })
-    assert response.status_code in (200, 500, 502)
+def test_ai_test_endpoint_returns_response(client):
+    headers = _auth(client)
+    with patch("main.call_openrouter", return_value="4"):
+        response = client.post("/api/ai/test", json={"prompt": "2+2"}, headers=headers)
+    assert response.status_code == 200
     data = response.json()
-    if response.status_code == 500:
-        assert "OPENROUTER_API_KEY" in data.get("detail", "")
-    elif response.status_code == 502:
-        assert data.get("detail", "")
+    assert data["prompt"] == "2+2"
+    assert data["response"] == "4"
 
 
 def test_ai_chat_without_auth(client):
@@ -316,32 +282,22 @@ def test_ai_chat_without_auth(client):
 
 
 def test_ai_chat_missing_message(client):
-    login_resp = client.post("/api/auth/login", json={
-        "username": "user",
-        "password": "password",
-    })
-    token = login_resp.json()["token"]
-    response = client.post("/api/ai/chat", json={}, headers={
-        "Authorization": f"Bearer {token}"
-    })
+    response = client.post("/api/ai/chat", json={}, headers=_auth(client))
     assert response.status_code == 400
 
 
-def test_ai_chat_endpoint_returns_expected_format(client):
-    login_resp = client.post("/api/auth/login", json={
-        "username": "user",
-        "password": "password",
-    })
-    token = login_resp.json()["token"]
-    response = client.post("/api/ai/chat", json={"message": "hello"}, headers={
-        "Authorization": f"Bearer {token}"
-    })
-    assert response.status_code in (200, 500, 502)
+def test_ai_chat_whitespace_message(client):
+    response = client.post("/api/ai/chat", json={"message": "   "}, headers=_auth(client))
+    assert response.status_code == 400
+
+
+def test_ai_chat_returns_message_and_board_updated(client):
+    headers = _auth(client)
+    ai_payload = '{"message": "Sure, here is the board.", "board_update": null}'
+    with patch("main.call_openrouter", return_value=ai_payload):
+        response = client.post("/api/ai/chat", json={"message": "hello"}, headers=headers)
+    assert response.status_code == 200
     data = response.json()
-    if response.status_code == 200:
-        assert "message" in data
-        assert "board_updated" in data
-    elif response.status_code == 500:
-        assert "OPENROUTER_API_KEY" in data.get("detail", "")
-    elif response.status_code == 502:
-        assert "OpenRouter" in data.get("detail", "")
+    assert "message" in data
+    assert "board_updated" in data
+    assert data["board_updated"] is False

@@ -5,6 +5,8 @@ import re
 
 import httpx
 
+from db import validate_board
+
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODEL = "openai/gpt-oss-120b:free"
@@ -99,7 +101,6 @@ def parse_ai_response(raw_text: str) -> dict:
     result = {"message": data["message"], "board_update": None}
 
     if "board_update" in data and data["board_update"]:
-        from db import validate_board
         board_data = data["board_update"]
         errors = validate_board(board_data)
         if errors:
