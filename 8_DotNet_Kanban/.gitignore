@@ -1,0 +1,26 @@
+# Secrets — never commit
+.env
+*.env.*
+**/appsettings.*.local.json
+
+# .NET build output
+**/bin/
+**/obj/
+**/wwwroot/
+
+# EF Core migration bundles
+*.migrations.bundle
+
+# Rider / VS / VSCode
+.idea/
+.vs/
+*.user
+*.suo
+
+# Node
+**/node_modules/
+frontend/dist/
+
+# OS
+.DS_Store
+Thumbs.db

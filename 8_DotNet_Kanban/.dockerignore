@@ -1,0 +1,10 @@
+**/bin
+**/obj
+**/wwwroot
+**/node_modules
+frontend/dist
+.env
+*.env.*
+.git
+.vs
+.idea

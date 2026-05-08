@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Bash(npm list *)",
+      "Bash(npm run *)",
+      "Bash(Stop-Process -Name \"KanbanApi\" -Force -ErrorAction SilentlyContinue)",
+      "Bash(Start-Sleep -Seconds 1)",
+      "Bash(docker exec stupefied_ishizaka *)",
+      "Bash(taskkill /F /IM KanbanApi.exe)",
+      "Bash(taskkill /IM KanbanApi.exe)",
+      "WebFetch(domain:openrouter.ai)",
+      "PowerShell(Get-ChildItem *)",
+      "Bash(npx ng *)",
+      "Bash(Test-Path *)",
+      "PowerShell(docker info *)",
+      "PowerShell(Invoke-RestMethod http://localhost:8000/api/health)",
+      "PowerShell($res = Invoke-RestMethod -Method POST http://localhost:8000/api/auth/login -ContentType \"application/json\" -Body '{\"username\":\"user\",\"password\":\"password\"}'; Write-Host \"Token: $\\($res.token.Substring\\(0,16\\)\\)...\")",
+      "PowerShell($res = Invoke-RestMethod -Method POST http://localhost:8000/api/auth/login -ContentType \"application/json\" -Body '{\"username\":\"user\",\"password\":\"password\"}'; $board = Invoke-RestMethod http://localhost:8000/api/board -Headers @{ Authorization = \"Bearer $\\($res.token\\)\" }; Write-Host \"Board: $\\($board.name\\), Columns: $\\($board.columns.Count\\)\")"
+    ]
+  }
+}
