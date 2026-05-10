@@ -2,11 +2,11 @@ import { Component, ElementRef, ViewChild, computed, input, output, signal } fro
 import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, CdkDropList, CdkDrag, CdkDragPlaceholder, CdkDragHandle } from '@angular/cdk/drag-drop';
-import { Column, Card, CardPriority } from '../../models/board.models';
+import { Column, Card, CardPriority, UserSummary } from '../../models/board.models';
 import { CardComponent, CardEditEvent } from '../card/card.component';
 
-export interface CardAddedEvent { title: string; details: string; priority: CardPriority; label: string; dueDate: string | null; }
-export interface CardEditedEvent { cardId: string; title: string; details: string; priority: CardPriority; label: string; dueDate: string | null; }
+export interface CardAddedEvent { title: string; details: string; priority: CardPriority; label: string; dueDate: string | null; assignedToUserId: number | null; }
+export interface CardEditedEvent { cardId: string; title: string; details: string; priority: CardPriority; label: string; dueDate: string | null; assignedToUserId: number | null; }
 
 // Written out explicitly so Tailwind includes them
 const ACCENT_BORDERS  = ['border-t-indigo-500', 'border-t-amber-500', 'border-t-emerald-500', 'border-t-violet-500', 'border-t-rose-500'];
@@ -88,6 +88,7 @@ const ACCENT_BADGES   = ['bg-indigo-100 text-indigo-700', 'bg-amber-100 text-amb
           <div cdkDrag [cdkDragData]="card" class="group">
             <app-card
               [card]="card"
+              [users]="users()"
               (edited)="onCardEdited(card.id, $event)"
               (deleted)="cardDeleted.emit(card.id)" />
             <div *cdkDragPlaceholder
@@ -152,6 +153,7 @@ export class ColumnComponent {
   column      = input.required<Column>();
   colIndex    = input<number>(0);
   connectedTo = input<string[]>([]);
+  users       = input<UserSummary[]>([]);
 
   dropped       = output<CdkDragDrop<Card[]>>();
   cardAdded     = output<CardAddedEvent>();
@@ -195,7 +197,8 @@ export class ColumnComponent {
       details: this.newCardDetails.trim(),
       priority: this.newCardPriority,
       label: this.newCardLabel.trim(),
-      dueDate: null
+      dueDate: null,
+      assignedToUserId: null
     });
     this.newCardTitle   = '';
     this.newCardDetails = '';
@@ -213,6 +216,6 @@ export class ColumnComponent {
   }
 
   onCardEdited(cardId: string, edit: CardEditEvent): void {
-    this.cardEdited.emit({ cardId, title: edit.title, details: edit.details, priority: edit.priority, label: edit.label, dueDate: edit.dueDate });
+    this.cardEdited.emit({ cardId, title: edit.title, details: edit.details, priority: edit.priority, label: edit.label, dueDate: edit.dueDate, assignedToUserId: edit.assignedToUserId });
   }
 }

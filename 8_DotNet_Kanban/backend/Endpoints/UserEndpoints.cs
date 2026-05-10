@@ -28,6 +28,24 @@ public static class UserEndpoints
         .WithName("ChangePassword")
         .AddEndpointFilter<TokenAuthFilter>();
 
+        auth.MapPost("/profile",
+            async (HttpContext ctx, UpdateProfileRequest req, UserService users) =>
+        {
+            var user = (User)ctx.Items["User"]!;
+            var ok = await users.UpdateProfileAsync(user.Id, req.Email);
+            return ok ? Results.Ok() : Results.BadRequest(new { error = "Email already in use" });
+        })
+        .WithName("UpdateProfile")
+        .AddEndpointFilter<TokenAuthFilter>();
+
+        // ── Authenticated: list all users (for card assignment) ──────────────
+
+        app.MapGet("/api/users", async (UserService users) =>
+            Results.Ok(await users.GetUserSummariesAsync()))
+        .WithName("ListUserSummaries")
+        .WithTags("Users")
+        .AddEndpointFilter<TokenAuthFilter>();
+
         // ── Admin: user management ───────────────────────────────────────────
 
         var admin = app.MapGroup("/api/admin/users")

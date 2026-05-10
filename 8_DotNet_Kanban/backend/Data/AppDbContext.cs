@@ -33,5 +33,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         mb.Entity<Card>()
             .HasOne(c => c.Column).WithMany(col => col.Cards)
             .OnDelete(DeleteBehavior.Cascade);
+
+        mb.Entity<Card>()
+            .HasOne(c => c.AssignedToUser).WithMany()
+            .HasForeignKey(c => c.AssignedToUserId)
+            .OnDelete(DeleteBehavior.ClientSetNull);
     }
 }

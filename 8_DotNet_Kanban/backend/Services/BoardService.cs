@@ -30,7 +30,7 @@ public class BoardService(AppDbContext db)
         if (boardId.HasValue)
         {
             board = await db.Boards
-                .Include(b => b.Columns).ThenInclude(c => c.Cards)
+                .Include(b => b.Columns).ThenInclude(c => c.Cards).ThenInclude(c => c.AssignedToUser)
                 .FirstOrDefaultAsync(b => b.Id == boardId && b.UserId == userId);
 
             if (board is null)
@@ -39,7 +39,7 @@ public class BoardService(AppDbContext db)
         else
         {
             board = await db.Boards
-                .Include(b => b.Columns).ThenInclude(c => c.Cards)
+                .Include(b => b.Columns).ThenInclude(c => c.Cards).ThenInclude(c => c.AssignedToUser)
                 .Where(b => b.UserId == userId)
                 .OrderBy(b => b.CreatedAt)
                 .FirstOrDefaultAsync();
@@ -70,7 +70,7 @@ public class BoardService(AppDbContext db)
         await db.SaveChangesAsync();
 
         var loaded = await db.Boards
-            .Include(b => b.Columns).ThenInclude(c => c.Cards)
+            .Include(b => b.Columns).ThenInclude(c => c.Cards).ThenInclude(c => c.AssignedToUser)
             .FirstAsync(b => b.Id == board.Id);
         return MapToDto(loaded);
     }
@@ -160,6 +160,7 @@ public class BoardService(AppDbContext db)
                 card.Priority = Enum.TryParse<CardPriority>(cardDto.Priority, true, out var p) ? p : CardPriority.Medium;
                 card.Label = cardDto.Label;
                 card.DueDate = cardDto.DueDate;
+                card.AssignedToUserId = cardDto.AssignedToUserId;
                 card.UpdatedAt = DateTime.UtcNow;
             }
         }
@@ -167,7 +168,7 @@ public class BoardService(AppDbContext db)
         await db.SaveChangesAsync();
 
         var refreshed = await db.Boards
-            .Include(b => b.Columns).ThenInclude(c => c.Cards)
+            .Include(b => b.Columns).ThenInclude(c => c.Cards).ThenInclude(c => c.AssignedToUser)
             .FirstAsync(b => b.Id == board.Id);
 
         return MapToDto(refreshed);
@@ -223,7 +224,9 @@ public class BoardService(AppDbContext db)
                 card.Position,
                 card.Priority.ToString(),
                 card.Label,
-                card.DueDate
+                card.DueDate,
+                card.AssignedToUserId,
+                card.AssignedToUser?.Username
             )).ToList()
         )).ToList()
     );

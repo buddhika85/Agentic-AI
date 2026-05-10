@@ -5,7 +5,9 @@ public record CardDto(
     int Position,
     string Priority,
     string Label,
-    DateTime? DueDate
+    DateTime? DueDate,
+    int? AssignedToUserId,
+    string? AssignedToUsername
 );
 
 public record ColumnDto(string Id, string Title, int Position, List<CardDto> Cards);

@@ -11,6 +11,8 @@ public class Card
     public CardPriority Priority { get; set; } = CardPriority.Medium;
     public string Label { get; set; } = "";
     public DateTime? DueDate { get; set; }
+    public int? AssignedToUserId { get; set; }
+    public User? AssignedToUser { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

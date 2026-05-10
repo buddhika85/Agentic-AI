@@ -7,12 +7,14 @@ import { LoginComponent } from './auth/login/login.component';
 import { BoardListComponent } from './board/board-list/board-list.component';
 import { BoardComponent } from './board/board.component';
 import { AdminComponent } from './admin/admin.component';
+import { ProfileComponent } from './profile/profile.component';
 
 const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: '', component: BoardListComponent, canActivate: [authGuard] },
   { path: 'boards/:id', component: BoardComponent, canActivate: [authGuard] },
   { path: 'admin', component: AdminComponent, canActivate: [adminGuard] },
+  { path: 'profile', component: ProfileComponent, canActivate: [authGuard] },
   { path: '**', redirectTo: '' }
 ];
 

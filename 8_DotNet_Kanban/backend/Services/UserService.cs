@@ -47,6 +47,11 @@ public class UserService(AppDbContext db)
         var user = await db.Users.FindAsync(id);
         if (user is null) return false;
 
+        // Clear card assignments before deleting (avoids FK constraint violation)
+        await db.Cards
+            .Where(c => c.AssignedToUserId == id)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.AssignedToUserId, (int?)null));
+
         db.Users.Remove(user);
         await db.SaveChangesAsync();
         return true;
@@ -85,6 +90,30 @@ public class UserService(AppDbContext db)
         if (user is null) return false;
 
         user.Role = role;
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<List<UserSummaryDto>> GetUserSummariesAsync()
+    {
+        return await db.Users
+            .OrderBy(u => u.Username)
+            .Select(u => new UserSummaryDto(u.Id, u.Username))
+            .ToListAsync();
+    }
+
+    public async Task<bool> UpdateProfileAsync(int userId, string? email)
+    {
+        var user = await db.Users.FindAsync(userId);
+        if (user is null) return false;
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            if (await db.Users.AnyAsync(u => u.Email == email && u.Id != userId))
+                return false;
+            user.Email = email;
+        }
+
         await db.SaveChangesAsync();
         return true;
     }

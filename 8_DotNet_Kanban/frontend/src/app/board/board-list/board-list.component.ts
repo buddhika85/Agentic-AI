@@ -28,7 +28,14 @@ import { BoardSummary } from '../../models/board.models';
         </div>
 
         <div class="flex items-center gap-3">
-          <span class="text-white/60 text-sm">{{ auth.username() }}</span>
+          <button (click)="router.navigate(['/profile'])"
+                  class="flex items-center gap-2 text-sm text-white/70 hover:text-white
+                         bg-white/10 hover:bg-white/20 rounded-lg px-3 py-1.5 transition-all">
+            <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
+              {{ auth.username()[0]?.toUpperCase() }}
+            </span>
+            {{ auth.username() }}
+          </button>
           @if (auth.isAdmin()) {
             <button (click)="goToAdmin()"
                     class="flex items-center gap-2 text-sm text-white/70 hover:text-white
@@ -162,7 +169,7 @@ import { BoardSummary } from '../../models/board.models';
 export class BoardListComponent implements OnInit {
   boardService = inject(BoardService);
   auth = inject(AuthService);
-  private router = inject(Router);
+  router = inject(Router);
 
   loading = signal(false);
   creating = signal(false);

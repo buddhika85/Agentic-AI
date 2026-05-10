@@ -1,12 +1,14 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { CdkDragDrop, CdkDropList, CdkDrag, CdkDragPlaceholder, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 import { BoardService } from './board.service';
 import { AuthService } from '../auth/auth.service';
 import { ColumnComponent, CardEditedEvent, CardAddedEvent } from './column/column.component';
 import { ChatSidebarComponent } from '../chat/chat-sidebar.component';
-import { Card, Column, CardPriority } from '../models/board.models';
+import { Card, Column, UserSummary } from '../models/board.models';
 
 @Component({
   selector: 'app-board',
@@ -57,7 +59,33 @@ import { Card, Column, CardPriority } from '../models/board.models';
             }
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-3">
+            <!-- Search -->
+            <div class="relative">
+              <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40"
+                   fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
+              </svg>
+              <input [(ngModel)]="searchQuery"
+                     class="bg-white/10 border border-white/20 text-white placeholder-white/40 text-xs
+                            rounded-lg pl-8 pr-3 py-1.5 outline-none focus:border-white/40 w-44 transition-all"
+                     placeholder="Search cards…" />
+              @if (searchQuery) {
+                <button (click)="searchQuery = ''"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              }
+            </div>
+
+            @if (searchQuery) {
+              <span class="text-xs text-white/60 bg-white/10 px-2 py-1 rounded-lg">
+                {{ matchCount() }} match{{ matchCount() === 1 ? '' : 'es' }}
+              </span>
+            }
+
             <button (click)="logout()"
                     class="flex items-center gap-2 text-sm text-white/70 hover:text-white
                            bg-white/10 hover:bg-white/20 rounded-lg px-3 py-1.5 transition-all">
@@ -86,12 +114,13 @@ import { Card, Column, CardPriority } from '../models/board.models';
                cdkDropList
                cdkDropListOrientation="horizontal"
                (cdkDropListDropped)="onColumnDrop($event)">
-            @for (col of boardService.board()!.columns; track col.id; let i = $index) {
+            @for (col of filteredColumns(); track col.id; let i = $index) {
               <div cdkDrag [cdkDragData]="col" class="flex-shrink-0">
                 <app-column
                   [column]="col"
                   [colIndex]="i"
                   [connectedTo]="columnIds"
+                  [users]="users()"
                   (dropped)="onDrop($event)"
                   (cardAdded)="onCardAdded(col.id, $event)"
                   (cardEdited)="onCardEdited(col.id, $event)"
@@ -104,8 +133,8 @@ import { Card, Column, CardPriority } from '../models/board.models';
               </div>
             }
 
-            <!-- Add column (hidden at limit) -->
-            @if (boardService.board()!.columns.length < 5) {
+            <!-- Add column (hidden at limit, hidden during search) -->
+            @if (boardService.board()!.columns.length < 5 && !searchQuery) {
             <div class="w-72 flex-shrink-0">
               @if (addingColumn()) {
                 <div class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-white p-4 space-y-3">
@@ -155,15 +184,47 @@ export class BoardComponent implements OnInit {
   private auth = inject(AuthService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private http = inject(HttpClient);
 
   addingColumn     = signal(false);
   editingBoardName = signal(false);
   newColumnTitle   = '';
   boardNameEdit    = '';
+  searchQuery      = '';
+  users            = signal<UserSummary[]>([]);
+
+  filteredColumns = computed(() => {
+    const board = this.boardService.board();
+    if (!board) return [];
+    const q = this.searchQuery.trim().toLowerCase();
+    if (!q) return board.columns;
+
+    return board.columns.map(col => ({
+      ...col,
+      cards: col.cards.filter(c =>
+        c.title.toLowerCase().includes(q) ||
+        c.label.toLowerCase().includes(q) ||
+        c.details.toLowerCase().includes(q) ||
+        (c.assignedToUsername?.toLowerCase().includes(q) ?? false)
+      )
+    }));
+  });
+
+  matchCount = computed(() =>
+    this.filteredColumns().reduce((n, col) => n + col.cards.length, 0)
+  );
 
   async ngOnInit(): Promise<void> {
     const boardId = this.route.snapshot.paramMap.get('id');
     await this.boardService.loadBoard(boardId ?? undefined);
+    this.loadUsers();
+  }
+
+  private async loadUsers(): Promise<void> {
+    try {
+      const list = await firstValueFrom(this.http.get<UserSummary[]>('/api/users'));
+      this.users.set(list);
+    } catch { /* non-critical */ }
   }
 
   goToBoards(): void {
@@ -218,7 +279,11 @@ export class BoardComponent implements OnInit {
       position: col.cards.length,
       priority: event.priority,
       label: event.label,
-      dueDate: event.dueDate
+      dueDate: event.dueDate,
+      assignedToUserId: event.assignedToUserId,
+      assignedToUsername: event.assignedToUserId
+        ? (this.users().find(u => u.id === event.assignedToUserId)?.username ?? null)
+        : null
     });
     this.boardService.updateBoard(board);
   }
@@ -232,6 +297,10 @@ export class BoardComponent implements OnInit {
     card.priority = event.priority;
     card.label = event.label;
     card.dueDate = event.dueDate;
+    card.assignedToUserId = event.assignedToUserId;
+    card.assignedToUsername = event.assignedToUserId
+      ? (this.users().find(u => u.id === event.assignedToUserId)?.username ?? null)
+      : null;
     this.boardService.updateBoard(board);
   }
 

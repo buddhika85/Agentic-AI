@@ -13,12 +13,14 @@ export class AuthService {
   private _role = signal<string>('User');
   private _username = signal<string>('');
   private _userId = signal<number>(0);
+  private _email = signal<string>('');
 
   isLoggedIn = computed(() => this.token() !== null);
   isAdmin = computed(() => this._role() === 'Admin');
   role = computed(() => this._role());
   username = computed(() => this._username());
   userId = computed(() => this._userId());
+  email = computed(() => this._email());
 
   async login(username: string, password: string): Promise<boolean> {
     try {
@@ -58,6 +60,7 @@ export class AuthService {
       this._role.set(profile.role);
       this._username.set(profile.username);
       this._userId.set(profile.id);
+      this._email.set(profile.email);
     } catch {
       // token expired or invalid
       this.clearSession();
@@ -79,6 +82,7 @@ export class AuthService {
     this._role.set('User');
     this._username.set('');
     this._userId.set(0);
+    this._email.set('');
   }
 
   getToken(): string | null {

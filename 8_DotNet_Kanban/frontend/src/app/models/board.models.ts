@@ -8,6 +8,13 @@ export interface Card {
   priority: CardPriority;
   label: string;
   dueDate: string | null;
+  assignedToUserId: number | null;
+  assignedToUsername: string | null;
+}
+
+export interface UserSummary {
+  id: number;
+  username: string;
 }
 
 export interface Column {

@@ -22,7 +22,24 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\BUDDHIKA\\\\AgenticAI\\\\8_DotNet_Kanban\\\\frontend\\\\src\" -Recurse -File | Where-Object { $_.FullName -notmatch 'node_modules' } | Select-Object -ExpandProperty FullName | Sort-Object)",
       "Skill(update-config)",
       "Bash(dotnet ef *)",
-      "Bash(dotnet test *)"
+      "Bash(dotnet test *)",
+      "Bash(docker version *)",
+      "Bash(docker context ls *)",
+      "Bash(docker context *)",
+      "Bash(docker info *)",
+      "Bash(tasklist)",
+      "Bash(dir *)",
+      "Bash(docker -H npipe:////./pipe/docker_engine info)",
+      "Bash(docker -H npipe:////./pipe/docker_engine ps)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(wsl docker version 2>&1)",
+      "PowerShell(wsl -d Ubuntu docker version 2>&1)",
+      "PowerShell(wsl --list --verbose 2>&1)",
+      "PowerShell(Stop-Process *)",
+      "Bash(npm test *)",
+      "Bash(cat jest.config.js)",
+      "Bash(cat jest.config.ts)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('scripts', {}\\)\\)\")"
     ]
   },
   "enabledPlugins": {

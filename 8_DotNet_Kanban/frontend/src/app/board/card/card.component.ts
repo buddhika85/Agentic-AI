@@ -1,9 +1,16 @@
 import { Component, input, output, signal, computed } from '@angular/core';
 import { NgClass, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Card, CardPriority } from '../../models/board.models';
+import { Card, CardPriority, UserSummary } from '../../models/board.models';
 
-export interface CardEditEvent { title: string; details: string; priority: CardPriority; label: string; dueDate: string | null; }
+export interface CardEditEvent {
+  title: string;
+  details: string;
+  priority: CardPriority;
+  label: string;
+  dueDate: string | null;
+  assignedToUserId: number | null;
+}
 
 const PRIORITY_STYLES: Record<CardPriority, string> = {
   Low:    'bg-emerald-100 text-emerald-700',
@@ -41,6 +48,16 @@ const PRIORITY_STYLES: Record<CardPriority, string> = {
           <input [(ngModel)]="editDueDate" type="date"
                  class="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600" />
         </div>
+
+        @if (users().length > 0) {
+          <select [(ngModel)]="editAssignedToUserId"
+                  class="w-full text-xs border border-gray-200 rounded px-2 py-1 text-gray-600 bg-white">
+            <option [ngValue]="null">Unassigned</option>
+            @for (u of users(); track u.id) {
+              <option [ngValue]="u.id">{{ u.username }}</option>
+            }
+          </select>
+        }
 
         <div class="flex items-center gap-2 pt-1">
           <button (click)="save()"
@@ -94,6 +111,15 @@ const PRIORITY_STYLES: Record<CardPriority, string> = {
               {{ card().dueDate | date:'MMM d' }}
             </span>
           }
+          @if (card().assignedToUsername) {
+            <span class="flex items-center gap-1 ml-auto">
+              <span class="w-4 h-4 rounded-full bg-indigo-200 flex items-center justify-center
+                           text-[9px] font-bold text-indigo-700 flex-shrink-0">
+                {{ card().assignedToUsername![0].toUpperCase() }}
+              </span>
+              <span class="text-xs text-gray-400">{{ card().assignedToUsername }}</span>
+            </span>
+          }
         </div>
 
         <!-- Edit hint -->
@@ -109,15 +135,17 @@ const PRIORITY_STYLES: Record<CardPriority, string> = {
 })
 export class CardComponent {
   card    = input.required<Card>();
+  users   = input<UserSummary[]>([]);
   edited  = output<CardEditEvent>();
   deleted = output<void>();
 
-  editing     = signal(false);
-  editTitle   = '';
-  editDetails = '';
+  editing              = signal(false);
+  editTitle            = '';
+  editDetails          = '';
   editPriority: CardPriority = 'Medium';
-  editLabel   = '';
-  editDueDate = '';
+  editLabel            = '';
+  editDueDate          = '';
+  editAssignedToUserId: number | null = null;
 
   priorityStyle = computed(() => PRIORITY_STYLES[this.card().priority ?? 'Medium']);
 
@@ -128,11 +156,12 @@ export class CardComponent {
   });
 
   startEdit(): void {
-    this.editTitle    = this.card().title;
-    this.editDetails  = this.card().details;
-    this.editPriority = this.card().priority ?? 'Medium';
-    this.editLabel    = this.card().label ?? '';
-    this.editDueDate  = this.card().dueDate ? this.card().dueDate!.substring(0, 10) : '';
+    this.editTitle            = this.card().title;
+    this.editDetails          = this.card().details;
+    this.editPriority         = this.card().priority ?? 'Medium';
+    this.editLabel            = this.card().label ?? '';
+    this.editDueDate          = this.card().dueDate ? this.card().dueDate!.substring(0, 10) : '';
+    this.editAssignedToUserId = this.card().assignedToUserId ?? null;
     this.editing.set(true);
   }
 
@@ -143,7 +172,8 @@ export class CardComponent {
         details: this.editDetails,
         priority: this.editPriority,
         label: this.editLabel,
-        dueDate: this.editDueDate || null
+        dueDate: this.editDueDate || null,
+        assignedToUserId: this.editAssignedToUserId
       });
     }
     this.editing.set(false);
