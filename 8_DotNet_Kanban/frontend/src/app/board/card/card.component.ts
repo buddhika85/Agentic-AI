@@ -1,13 +1,20 @@
-import { Component, input, output, signal } from '@angular/core';
+import { Component, input, output, signal, computed } from '@angular/core';
+import { NgClass, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Card } from '../../models/board.models';
+import { Card, CardPriority } from '../../models/board.models';
 
-export interface CardEditEvent { title: string; details: string; }
+export interface CardEditEvent { title: string; details: string; priority: CardPriority; label: string; dueDate: string | null; }
+
+const PRIORITY_STYLES: Record<CardPriority, string> = {
+  Low:    'bg-emerald-100 text-emerald-700',
+  Medium: 'bg-amber-100 text-amber-700',
+  High:   'bg-rose-100 text-rose-700'
+};
 
 @Component({
   selector: 'app-card',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, NgClass, DatePipe],
   template: `
     @if (editing()) {
       <!-- Edit mode -->
@@ -20,6 +27,21 @@ export interface CardEditEvent { title: string; details: string; }
                   class="w-full text-xs text-gray-500 resize-none outline-none placeholder-gray-300"
                   placeholder="Add details…"
                   (keydown.escape)="cancel()"></textarea>
+
+        <div class="flex gap-2 flex-wrap">
+          <select [(ngModel)]="editPriority"
+                  class="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600 bg-white">
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+          </select>
+          <input [(ngModel)]="editLabel" type="text"
+                 class="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600 flex-1 min-w-0"
+                 placeholder="Label (e.g. bug, feature)" />
+          <input [(ngModel)]="editDueDate" type="date"
+                 class="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600" />
+        </div>
+
         <div class="flex items-center gap-2 pt-1">
           <button (click)="save()"
                   class="text-xs font-semibold bg-indigo-600 text-white px-3 py-1.5 rounded-lg
@@ -42,10 +64,38 @@ export interface CardEditEvent { title: string; details: string; }
                   cursor-pointer hover:shadow-md hover:border-indigo-200
                   transition-all duration-150 group"
            (click)="startEdit()">
-        <p class="text-sm font-medium text-gray-800 leading-snug">{{ card().title }}</p>
+        <!-- Title row -->
+        <div class="flex items-start justify-between gap-2">
+          <p class="text-sm font-medium text-gray-800 leading-snug flex-1 min-w-0">{{ card().title }}</p>
+          <span class="text-xs font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
+                [ngClass]="priorityStyle()">
+            {{ card().priority }}
+          </span>
+        </div>
+
         @if (card().details) {
           <p class="text-xs text-gray-400 mt-1 line-clamp-2 leading-relaxed">{{ card().details }}</p>
         }
+
+        <!-- Metadata row -->
+        <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+          @if (card().label) {
+            <span class="text-xs px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded-md font-medium">
+              {{ card().label }}
+            </span>
+          }
+          @if (card().dueDate) {
+            <span class="text-xs text-gray-400 flex items-center gap-1"
+                  [class.text-rose-500]="isOverdue()">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              {{ card().dueDate | date:'MMM d' }}
+            </span>
+          }
+        </div>
+
         <!-- Edit hint -->
         <div class="flex justify-end mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
           <svg class="w-3 h-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -65,16 +115,36 @@ export class CardComponent {
   editing     = signal(false);
   editTitle   = '';
   editDetails = '';
+  editPriority: CardPriority = 'Medium';
+  editLabel   = '';
+  editDueDate = '';
+
+  priorityStyle = computed(() => PRIORITY_STYLES[this.card().priority ?? 'Medium']);
+
+  isOverdue = computed(() => {
+    const due = this.card().dueDate;
+    if (!due) return false;
+    return new Date(due) < new Date();
+  });
 
   startEdit(): void {
-    this.editTitle   = this.card().title;
-    this.editDetails = this.card().details;
+    this.editTitle    = this.card().title;
+    this.editDetails  = this.card().details;
+    this.editPriority = this.card().priority ?? 'Medium';
+    this.editLabel    = this.card().label ?? '';
+    this.editDueDate  = this.card().dueDate ? this.card().dueDate!.substring(0, 10) : '';
     this.editing.set(true);
   }
 
   save(): void {
     if (this.editTitle.trim()) {
-      this.edited.emit({ title: this.editTitle.trim(), details: this.editDetails });
+      this.edited.emit({
+        title: this.editTitle.trim(),
+        details: this.editDetails,
+        priority: this.editPriority,
+        label: this.editLabel,
+        dueDate: this.editDueDate || null
+      });
     }
     this.editing.set(false);
   }

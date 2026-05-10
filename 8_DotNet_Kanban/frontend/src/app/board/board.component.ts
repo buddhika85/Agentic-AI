@@ -1,11 +1,12 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CdkDragDrop, CdkDropList, CdkDrag, CdkDragPlaceholder, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
 import { BoardService } from './board.service';
 import { AuthService } from '../auth/auth.service';
-import { ColumnComponent, CardEditedEvent } from './column/column.component';
+import { ColumnComponent, CardEditedEvent, CardAddedEvent } from './column/column.component';
 import { ChatSidebarComponent } from '../chat/chat-sidebar.component';
-import { Card, Column } from '../models/board.models';
+import { Card, Column, CardPriority } from '../models/board.models';
 
 @Component({
   selector: 'app-board',
@@ -22,26 +23,51 @@ import { Card, Column } from '../models/board.models';
                        bg-gradient-to-r from-indigo-700 to-purple-700
                        shadow-lg shadow-indigo-900/30 z-10">
           <div class="flex items-center gap-3">
-            <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-white/20">
-              <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <!-- Back to boards -->
+            <button (click)="goToBoards()"
+                    class="w-7 h-7 flex items-center justify-center rounded-lg text-white/60
+                           hover:text-white hover:bg-white/10 transition-all"
+                    title="Back to boards">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+              </svg>
+            </button>
+
+            <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20">
+              <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round"
                   d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
               </svg>
             </div>
-            <h1 class="text-base font-bold text-white tracking-tight">
-              {{ boardService.board()?.name ?? 'Loading…' }}
-            </h1>
+
+            <!-- Board name (editable) -->
+            @if (editingBoardName()) {
+              <input [(ngModel)]="boardNameEdit"
+                     class="bg-white/20 text-white text-base font-bold rounded-lg px-3 py-1 outline-none
+                            border border-white/30 focus:border-white/60 w-64"
+                     (keydown.enter)="saveBoardName()"
+                     (keydown.escape)="cancelBoardName()"
+                     (blur)="saveBoardName()" />
+            } @else {
+              <h1 class="text-base font-bold text-white tracking-tight cursor-pointer hover:text-white/80"
+                  title="Click to rename board"
+                  (click)="startEditBoardName()">
+                {{ boardService.board()?.name ?? 'Loading…' }}
+              </h1>
+            }
           </div>
 
-          <button (click)="logout()"
-                  class="flex items-center gap-2 text-sm text-white/70 hover:text-white
-                         bg-white/10 hover:bg-white/20 rounded-lg px-3 py-1.5 transition-all">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/>
-            </svg>
-            Logout
-          </button>
+          <div class="flex items-center gap-2">
+            <button (click)="logout()"
+                    class="flex items-center gap-2 text-sm text-white/70 hover:text-white
+                           bg-white/10 hover:bg-white/20 rounded-lg px-3 py-1.5 transition-all">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/>
+              </svg>
+              Logout
+            </button>
+          </div>
         </header>
 
         <!-- Columns -->
@@ -114,31 +140,58 @@ import { Card, Column } from '../models/board.models';
                 </button>
               }
             </div>
-            } <!-- end @if columns < 5 -->
+            }
           </div>
         }
-
       </div>
 
       <!-- AI Chat sidebar -->
       <app-chat-sidebar />
-
     </div>
   `
 })
 export class BoardComponent implements OnInit {
   boardService = inject(BoardService);
   private auth = inject(AuthService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
-  addingColumn    = signal(false);
-  newColumnTitle  = '';
+  addingColumn     = signal(false);
+  editingBoardName = signal(false);
+  newColumnTitle   = '';
+  boardNameEdit    = '';
 
-  ngOnInit(): void {
-    this.boardService.loadBoard();
+  async ngOnInit(): Promise<void> {
+    const boardId = this.route.snapshot.paramMap.get('id');
+    await this.boardService.loadBoard(boardId ?? undefined);
+  }
+
+  goToBoards(): void {
+    this.router.navigate(['/']);
   }
 
   logout(): void {
     this.auth.logout();
+  }
+
+  startEditBoardName(): void {
+    this.boardNameEdit = this.boardService.board()?.name ?? '';
+    this.editingBoardName.set(true);
+  }
+
+  saveBoardName(): void {
+    if (!this.editingBoardName()) return;
+    const name = this.boardNameEdit.trim();
+    if (name && name !== this.boardService.board()?.name) {
+      const board = structuredClone(this.boardService.board()!);
+      board.name = name;
+      this.boardService.updateBoard(board);
+    }
+    this.editingBoardName.set(false);
+  }
+
+  cancelBoardName(): void {
+    this.editingBoardName.set(false);
   }
 
   onDrop(event: CdkDragDrop<Card[]>): void {
@@ -155,10 +208,18 @@ export class BoardComponent implements OnInit {
     this.boardService.updateBoard(board);
   }
 
-  onCardAdded(columnId: string, event: { title: string; details: string }): void {
+  onCardAdded(columnId: string, event: CardAddedEvent): void {
     const board = structuredClone(this.boardService.board()!);
     const col = board.columns.find(c => c.id === columnId)!;
-    col.cards.push({ id: `new-${Date.now()}`, title: event.title, details: event.details, position: col.cards.length });
+    col.cards.push({
+      id: `new-${Date.now()}`,
+      title: event.title,
+      details: event.details,
+      position: col.cards.length,
+      priority: event.priority,
+      label: event.label,
+      dueDate: event.dueDate
+    });
     this.boardService.updateBoard(board);
   }
 
@@ -168,6 +229,9 @@ export class BoardComponent implements OnInit {
     const card = col.cards.find(c => c.id === event.cardId)!;
     card.title = event.title;
     card.details = event.details;
+    card.priority = event.priority;
+    card.label = event.label;
+    card.dueDate = event.dueDate;
     this.boardService.updateBoard(board);
   }
 

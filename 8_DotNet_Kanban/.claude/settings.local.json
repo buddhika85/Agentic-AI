@@ -16,7 +16,16 @@
       "PowerShell(docker info *)",
       "PowerShell(Invoke-RestMethod http://localhost:8000/api/health)",
       "PowerShell($res = Invoke-RestMethod -Method POST http://localhost:8000/api/auth/login -ContentType \"application/json\" -Body '{\"username\":\"user\",\"password\":\"password\"}'; Write-Host \"Token: $\\($res.token.Substring\\(0,16\\)\\)...\")",
-      "PowerShell($res = Invoke-RestMethod -Method POST http://localhost:8000/api/auth/login -ContentType \"application/json\" -Body '{\"username\":\"user\",\"password\":\"password\"}'; $board = Invoke-RestMethod http://localhost:8000/api/board -Headers @{ Authorization = \"Bearer $\\($res.token\\)\" }; Write-Host \"Board: $\\($board.name\\), Columns: $\\($board.columns.Count\\)\")"
+      "PowerShell($res = Invoke-RestMethod -Method POST http://localhost:8000/api/auth/login -ContentType \"application/json\" -Body '{\"username\":\"user\",\"password\":\"password\"}'; $board = Invoke-RestMethod http://localhost:8000/api/board -Headers @{ Authorization = \"Bearer $\\($res.token\\)\" }; Write-Host \"Board: $\\($board.name\\), Columns: $\\($board.columns.Count\\)\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\BUDDHIKA\\\\AgenticAI\\\\8_DotNet_Kanban\" -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\BUDDHIKA\\\\AgenticAI\\\\8_DotNet_Kanban\\\\frontend\\\\src\" -Recurse -File | Where-Object { $_.FullName -notmatch 'node_modules' } | Select-Object -ExpandProperty FullName | Sort-Object)",
+      "Skill(update-config)",
+      "Bash(dotnet ef *)",
+      "Bash(dotnet test *)"
     ]
+  },
+  "enabledPlugins": {
+    "ralph-loop@claude-plugins-official": true
   }
 }

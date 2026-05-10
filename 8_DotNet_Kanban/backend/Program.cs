@@ -33,6 +33,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<BoardService>();
 builder.Services.AddScoped<AiService>();
+builder.Services.AddScoped<UserService>();
 
 builder.Services.AddHttpClient("openrouter", client =>
 {
@@ -44,8 +45,7 @@ builder.Services.AddHttpClient("openrouter", client =>
 
 var app = builder.Build();
 
-// Auto-migrate and seed default user
-// Retries handle the race where MSSQL is still recovering an existing DB when the healthcheck passes.
+// Auto-migrate and seed users
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -67,16 +67,33 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
-    if (!db.Users.Any())
+    // Seed default user
+    if (!db.Users.Any(u => u.Username == "user"))
     {
         db.Users.Add(new User
         {
             Username = "user",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("password"),
+            Email = "user@example.com",
+            Role = UserRole.User,
             CreatedAt = DateTime.UtcNow
         });
-        db.SaveChanges();
     }
+
+    // Seed admin user
+    if (!db.Users.Any(u => u.Username == "admin"))
+    {
+        db.Users.Add(new User
+        {
+            Username = "admin",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123!"),
+            Email = "admin@example.com",
+            Role = UserRole.Admin,
+            CreatedAt = DateTime.UtcNow
+        });
+    }
+
+    db.SaveChanges();
 }
 
 if (app.Environment.IsDevelopment())
@@ -99,6 +116,7 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }))
 AuthEndpoints.Map(app);
 BoardEndpoints.Map(app);
 AiEndpoints.Map(app);
+UserEndpoints.Map(app);
 
 // SPA catch-all — must stay last
 app.MapFallbackToFile("index.html");

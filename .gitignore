@@ -94,3 +94,27 @@ __pycache__/
 
 # Nested git repos / submodules
 6_Site/portfolio-site/
+
+# .NET build output
+**/bin/
+**/obj/
+
+# .NET local settings (may contain secrets)
+**/appsettings.*.local.json
+
+# EF Core migration bundles
+**/*.migrations.bundle
+
+# Angular build output served by .NET backend
+**/wwwroot/
+
+# Angular CLI cache
+**/.angular/
+
+# TypeScript compiler output
+**/out-tsc/
+
+# Visual Studio
+**/.vs/
+**/*.user
+**/*.suo

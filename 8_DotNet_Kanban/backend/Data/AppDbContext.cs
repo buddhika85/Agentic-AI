@@ -12,6 +12,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     {
         mb.Entity<Session>().HasKey(s => s.Token);
 
+        mb.Entity<User>()
+            .HasIndex(u => u.Username).IsUnique();
+
+        mb.Entity<User>()
+            .HasIndex(u => u.Email).IsUnique();
+
+        mb.Entity<User>()
+            .Property(u => u.Role)
+            .HasConversion<string>();
+
+        mb.Entity<Card>()
+            .Property(c => c.Priority)
+            .HasConversion<string>();
+
         mb.Entity<Column>()
             .HasOne(c => c.Board).WithMany(b => b.Columns)
             .OnDelete(DeleteBehavior.Cascade);

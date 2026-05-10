@@ -2,10 +2,11 @@ import { Component, ElementRef, ViewChild, computed, input, output, signal } fro
 import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, CdkDropList, CdkDrag, CdkDragPlaceholder, CdkDragHandle } from '@angular/cdk/drag-drop';
-import { Column, Card } from '../../models/board.models';
+import { Column, Card, CardPriority } from '../../models/board.models';
 import { CardComponent, CardEditEvent } from '../card/card.component';
 
-export interface CardEditedEvent { cardId: string; title: string; details: string; }
+export interface CardAddedEvent { title: string; details: string; priority: CardPriority; label: string; dueDate: string | null; }
+export interface CardEditedEvent { cardId: string; title: string; details: string; priority: CardPriority; label: string; dueDate: string | null; }
 
 // Written out explicitly so Tailwind includes them
 const ACCENT_BORDERS  = ['border-t-indigo-500', 'border-t-amber-500', 'border-t-emerald-500', 'border-t-violet-500', 'border-t-rose-500'];
@@ -33,7 +34,6 @@ const ACCENT_BADGES   = ['bg-indigo-100 text-indigo-700', 'bg-amber-100 text-amb
           </div>
         }
 
-        <!-- Title: click to edit -->
         @if (editingTitle()) {
           <input #titleInput
                  [(ngModel)]="editTitle"
@@ -51,7 +51,6 @@ const ACCENT_BADGES   = ['bg-indigo-100 text-indigo-700', 'bg-amber-100 text-amb
 
         @if (!editingTitle()) {
           <div class="flex items-center gap-1 flex-shrink-0">
-            <!-- Delete button — only when column is empty -->
             @if (column().cards.length === 0) {
               <button (click)="columnDeleted.emit()"
                       title="Delete column"
@@ -111,6 +110,17 @@ const ACCENT_BADGES   = ['bg-indigo-100 text-indigo-700', 'bg-amber-100 text-amb
                       class="w-full text-xs text-gray-500 resize-none outline-none placeholder-gray-300"
                       placeholder="Details (optional)…"
                       (keydown.escape)="cancelAdd()"></textarea>
+            <div class="flex gap-2 flex-wrap">
+              <select [(ngModel)]="newCardPriority"
+                      class="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600 bg-white">
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+              <input [(ngModel)]="newCardLabel" type="text"
+                     class="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600 flex-1 min-w-0"
+                     placeholder="Label" />
+            </div>
             <div class="flex gap-2">
               <button (click)="submitCard()"
                       class="text-xs font-semibold bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors">
@@ -144,7 +154,7 @@ export class ColumnComponent {
   connectedTo = input<string[]>([]);
 
   dropped       = output<CdkDragDrop<Card[]>>();
-  cardAdded     = output<{ title: string; details: string }>();
+  cardAdded     = output<CardAddedEvent>();
   cardEdited    = output<CardEditedEvent>();
   cardDeleted   = output<string>();
   columnDeleted = output<void>();
@@ -154,6 +164,8 @@ export class ColumnComponent {
   editingTitle   = signal(false);
   newCardTitle   = '';
   newCardDetails = '';
+  newCardPriority: CardPriority = 'Medium';
+  newCardLabel   = '';
   editTitle      = '';
 
   accentBorder = computed(() => ACCENT_BORDERS[this.colIndex() % ACCENT_BORDERS.length]);
@@ -178,19 +190,29 @@ export class ColumnComponent {
 
   submitCard(): void {
     const title = this.newCardTitle.trim();
-    if (title) this.cardAdded.emit({ title, details: this.newCardDetails.trim() });
+    if (title) this.cardAdded.emit({
+      title,
+      details: this.newCardDetails.trim(),
+      priority: this.newCardPriority,
+      label: this.newCardLabel.trim(),
+      dueDate: null
+    });
     this.newCardTitle   = '';
     this.newCardDetails = '';
+    this.newCardPriority = 'Medium';
+    this.newCardLabel   = '';
     this.addingCard.set(false);
   }
 
   cancelAdd(): void {
     this.newCardTitle   = '';
     this.newCardDetails = '';
+    this.newCardPriority = 'Medium';
+    this.newCardLabel   = '';
     this.addingCard.set(false);
   }
 
   onCardEdited(cardId: string, edit: CardEditEvent): void {
-    this.cardEdited.emit({ cardId, title: edit.title, details: edit.details });
+    this.cardEdited.emit({ cardId, title: edit.title, details: edit.details, priority: edit.priority, label: edit.label, dueDate: edit.dueDate });
   }
 }

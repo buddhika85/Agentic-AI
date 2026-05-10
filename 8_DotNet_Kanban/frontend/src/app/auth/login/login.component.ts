@@ -15,7 +15,6 @@ import { AuthService } from '../auth.service';
       <div class="absolute bottom-0 right-0 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
 
       <div class="relative w-full max-w-md">
-        <!-- Card -->
         <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-10">
 
           <!-- Logo -->
@@ -27,10 +26,23 @@ import { AuthService } from '../auth.service';
               </svg>
             </div>
             <h1 class="text-2xl font-bold text-white">Kanban Studio</h1>
-            <p class="text-sm text-white/50 mt-1">Sign in to your workspace</p>
+            <p class="text-sm text-white/50 mt-1">{{ isRegistering() ? 'Create your account' : 'Sign in to your workspace' }}</p>
           </div>
 
-          <!-- Form -->
+          <!-- Tab switcher -->
+          <div class="flex mb-6 bg-white/5 rounded-xl p-1">
+            <button (click)="isRegistering.set(false)"
+                    class="flex-1 text-sm font-semibold py-2 rounded-lg transition-all"
+                    [class]="!isRegistering() ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white/60'">
+              Sign In
+            </button>
+            <button (click)="isRegistering.set(true)"
+                    class="flex-1 text-sm font-semibold py-2 rounded-lg transition-all"
+                    [class]="isRegistering() ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white/60'">
+              Register
+            </button>
+          </div>
+
           <form (ngSubmit)="submit()" class="space-y-5">
 
             <div class="space-y-2">
@@ -38,8 +50,18 @@ import { AuthService } from '../auth.service';
               <input [(ngModel)]="username" name="username"
                      autocomplete="username"
                      class="w-full bg-white/10 border border-white/15 text-white placeholder-white/30 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/30 transition-all"
-                     placeholder="user" />
+                     placeholder="username" />
             </div>
+
+            @if (isRegistering()) {
+              <div class="space-y-2">
+                <label class="block text-xs font-semibold text-white/60 uppercase tracking-widest">Email</label>
+                <input [(ngModel)]="email" name="email" type="email"
+                       autocomplete="email"
+                       class="w-full bg-white/10 border border-white/15 text-white placeholder-white/30 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/30 transition-all"
+                       placeholder="you@example.com" />
+              </div>
+            }
 
             <div class="space-y-2">
               <label class="block text-xs font-semibold text-white/60 uppercase tracking-widest">Password</label>
@@ -71,10 +93,10 @@ import { AuthService } from '../auth.service';
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                   </svg>
-                  Signing in…
+                  {{ isRegistering() ? 'Creating account…' : 'Signing in…' }}
                 </span>
               } @else {
-                Sign in
+                {{ isRegistering() ? 'Create Account' : 'Sign In' }}
               }
             </button>
 
@@ -90,15 +112,31 @@ export class LoginComponent {
 
   username = '';
   password = '';
+  email = '';
+  isRegistering = signal(false);
   loading = signal(false);
   error = signal('');
 
-  async submit() {
+  async submit(): Promise<void> {
     this.error.set('');
     this.loading.set(true);
-    const ok = await this.auth.login(this.username, this.password);
-    this.loading.set(false);
-    if (ok) this.router.navigate(['/']);
-    else this.error.set('Invalid username or password');
+
+    if (this.isRegistering()) {
+      const result = await this.auth.register(this.username, this.password, this.email);
+      this.loading.set(false);
+      if (result.success) {
+        this.router.navigate(['/']);
+      } else {
+        this.error.set(result.error ?? 'Registration failed');
+      }
+    } else {
+      const ok = await this.auth.login(this.username, this.password);
+      this.loading.set(false);
+      if (ok) {
+        this.router.navigate(['/']);
+      } else {
+        this.error.set('Invalid username or password');
+      }
+    }
   }
 }

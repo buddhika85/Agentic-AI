@@ -24,7 +24,7 @@ public static class AuthEndpoints
         group.MapGet("/verify", (HttpContext ctx) =>
         {
             var user = (User)ctx.Items["User"]!;
-            return Results.Ok(new { user.Username });
+            return Results.Ok(new { user.Username, user.Email, Role = user.Role.ToString(), user.Id });
         })
         .WithName("VerifyToken")
         .AddEndpointFilter<TokenAuthFilter>();

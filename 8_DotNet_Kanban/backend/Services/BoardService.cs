@@ -2,29 +2,103 @@ using Microsoft.EntityFrameworkCore;
 
 public class BoardService(AppDbContext db)
 {
-    public async Task<BoardDto> GetBoardAsync(int userId)
-    {
-        var board = await db.Boards
-            .Include(b => b.Columns).ThenInclude(c => c.Cards)
-            .FirstOrDefaultAsync(b => b.UserId == userId);
+    private const int MaxColumns = 5;
 
-        if (board is null)
-            board = await SeedDefaultBoardAsync(userId);
+    // ── Board listing ────────────────────────────────────────────────────────
+
+    public async Task<List<BoardSummaryDto>> GetBoardsAsync(int userId)
+    {
+        return await db.Boards
+            .Where(b => b.UserId == userId)
+            .OrderByDescending(b => b.UpdatedAt)
+            .Select(b => new BoardSummaryDto(
+                b.Id.ToString(),
+                b.Name,
+                b.CreatedAt,
+                b.UpdatedAt,
+                b.Columns.SelectMany(c => c.Cards).Count()
+            ))
+            .ToListAsync();
+    }
+
+    // ── Get / create board ───────────────────────────────────────────────────
+
+    public async Task<BoardDto> GetBoardAsync(int userId, int? boardId = null)
+    {
+        Board? board;
+
+        if (boardId.HasValue)
+        {
+            board = await db.Boards
+                .Include(b => b.Columns).ThenInclude(c => c.Cards)
+                .FirstOrDefaultAsync(b => b.Id == boardId && b.UserId == userId);
+
+            if (board is null)
+                throw new KeyNotFoundException("Board not found");
+        }
+        else
+        {
+            board = await db.Boards
+                .Include(b => b.Columns).ThenInclude(c => c.Cards)
+                .Where(b => b.UserId == userId)
+                .OrderBy(b => b.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (board is null)
+                board = await SeedDefaultBoardAsync(userId);
+        }
 
         return MapToDto(board);
     }
 
-    public async Task<BoardDto> SaveBoardAsync(int userId, BoardDto dto)
+    // ── Create board ─────────────────────────────────────────────────────────
+
+    public async Task<BoardDto> CreateBoardAsync(int userId, string name)
+    {
+        var board = new Board
+        {
+            UserId = userId,
+            Name = name,
+            Columns =
+            [
+                new Column { Title = "To Do",       Position = 0, Cards = [] },
+                new Column { Title = "In Progress",  Position = 1, Cards = [] },
+                new Column { Title = "Done",         Position = 2, Cards = [] }
+            ]
+        };
+        db.Boards.Add(board);
+        await db.SaveChangesAsync();
+
+        var loaded = await db.Boards
+            .Include(b => b.Columns).ThenInclude(c => c.Cards)
+            .FirstAsync(b => b.Id == board.Id);
+        return MapToDto(loaded);
+    }
+
+    // ── Delete board ─────────────────────────────────────────────────────────
+
+    public async Task<bool> DeleteBoardAsync(int userId, int boardId)
+    {
+        var board = await db.Boards.FirstOrDefaultAsync(b => b.Id == boardId && b.UserId == userId);
+        if (board is null) return false;
+
+        db.Boards.Remove(board);
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    // ── Save board ───────────────────────────────────────────────────────────
+
+    public async Task<BoardDto> SaveBoardAsync(int userId, int boardId, BoardDto dto)
     {
         var board = await db.Boards
             .Include(b => b.Columns).ThenInclude(c => c.Cards)
-            .FirstOrDefaultAsync(b => b.UserId == userId)
-            ?? throw new InvalidOperationException("Board not found");
+            .FirstOrDefaultAsync(b => b.Id == boardId && b.UserId == userId)
+            ?? throw new KeyNotFoundException("Board not found");
 
         board.Name = dto.Name;
         board.UpdatedAt = DateTime.UtcNow;
 
-        const int MaxColumns = 5;
         if (dto.Columns.Count > MaxColumns)
             dto = dto with { Columns = dto.Columns.Take(MaxColumns).ToList() };
 
@@ -52,7 +126,6 @@ public class BoardService(AppDbContext db)
             syncedColumns.Add(col);
         }
 
-        // Flush so new columns get database IDs before we add cards
         await db.SaveChangesAsync();
 
         // --- Pass 2: sync cards ---
@@ -84,6 +157,9 @@ public class BoardService(AppDbContext db)
                 card.Title = cardDto.Title;
                 card.Details = cardDto.Details;
                 card.Position = cardDto.Position;
+                card.Priority = Enum.TryParse<CardPriority>(cardDto.Priority, true, out var p) ? p : CardPriority.Medium;
+                card.Label = cardDto.Label;
+                card.DueDate = cardDto.DueDate;
                 card.UpdatedAt = DateTime.UtcNow;
             }
         }
@@ -97,6 +173,18 @@ public class BoardService(AppDbContext db)
         return MapToDto(refreshed);
     }
 
+    // ── Legacy save (uses first board) for AI endpoint ───────────────────────
+
+    public async Task<BoardDto> SaveBoardAsync(int userId, BoardDto dto)
+    {
+        if (!int.TryParse(dto.Id, out var boardId))
+            throw new InvalidOperationException("Invalid board ID");
+
+        return await SaveBoardAsync(userId, boardId, dto);
+    }
+
+    // ── Seed default board ───────────────────────────────────────────────────
+
     private async Task<Board> SeedDefaultBoardAsync(int userId)
     {
         var board = new Board
@@ -108,7 +196,7 @@ public class BoardService(AppDbContext db)
                 new Column
                 {
                     Title = "To Do", Position = 0,
-                    Cards = [ new Card { Title = "Welcome!", Details = "Your first card", Position = 0 } ]
+                    Cards = [new Card { Title = "Welcome!", Details = "Your first card", Position = 0 }]
                 },
                 new Column { Title = "In Progress", Position = 1, Cards = [] },
                 new Column { Title = "Done",        Position = 2, Cards = [] }
@@ -119,7 +207,9 @@ public class BoardService(AppDbContext db)
         return board;
     }
 
-    private static BoardDto MapToDto(Board board) => new(
+    // ── Mapping ──────────────────────────────────────────────────────────────
+
+    public static BoardDto MapToDto(Board board) => new(
         board.Id.ToString(),
         board.Name,
         board.Columns.OrderBy(c => c.Position).Select(col => new ColumnDto(
@@ -127,7 +217,13 @@ public class BoardService(AppDbContext db)
             col.Title,
             col.Position,
             col.Cards.OrderBy(c => c.Position).Select(card => new CardDto(
-                card.Id.ToString(), card.Title, card.Details, card.Position
+                card.Id.ToString(),
+                card.Title,
+                card.Details,
+                card.Position,
+                card.Priority.ToString(),
+                card.Label,
+                card.DueDate
             )).ToList()
         )).ToList()
     );
